@@ -23,14 +23,14 @@ const path = require('path');
     // Define os cookies
     await page.setCookie({
       name: '__Host-session',
-      value: 'P6U7bgbuhS9AuNrnJ3jam',
+      value: 'iwJrHTN4CFyx4CdVWNs5w',
       domain: 'pi.ai',
       path: '/',
       sameSite: 'Lax',
       secure: true
     }, {
       name: '__cf_bm',
-      value: 'gxk3McqcBMXjMrnTTpPwhD0psi050Yrm6ywElmfFxtw-1725277923-1.0.1.1-kol1qv845WW4_aHF2IZIHDosY0ZIKSfnW_TXnbErFRCUtWvSY7kQJTBnwYEUIXMw7Vo.YtBRoWtr7AVYoQDj.w',
+      value: 'r8LQw3bq2NTjtwfYGPXJnFzr2Wk9lgSBZ1m4gXKN1tw-1725293908-1.0.1.1-WPQgPDxasPWduotFZ27sCaJVATE7S7mzkAcK4CY8PEpi7WImblGQj3IH7YXxV.4kfBU3ImtkoWHX7E4.WpmOkg',
       domain: '.pi.ai',
       path: '/',
       sameSite: 'None',
@@ -40,7 +40,7 @@ const path = require('path');
     await page.goto('https://pi.ai', { waitUntil: 'networkidle2', timeout: 60000 });
 
     // Lê o conteúdo do arquivo
-    const fileContent = await fs.readFile('archive/text.txt', 'utf8');
+    const fileContent = await fs.readFile('/home/phe/dev/chat_automation/archive/text.txt', 'utf8');
 
     // Separa o conteúdo por parágrafos
     const paragraphs = fileContent.split('#');
@@ -49,58 +49,67 @@ const path = require('path');
     let csvContent = 'sid, url\n';
 
     for (const paragraph of paragraphs) {
-      const responseText = await page.evaluate(async (text) => {
-        const url = 'https://pi.ai/api/chat';
-        const data = {
-          "text": `Responder sem emojis ${text}`,
-          "conversation": "8xNEukUg9wtmL9cyMtVk7" // Verifique se esse valor está correto
-        };
-    
-        const headers = {
-          'Accept': 'text/event-stream',
-          'Content-Type': 'application/json',
-          'Origin': 'https://pi.ai',
-          'Referer': 'https://pi.ai/talk',
-          'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Linux"',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
-          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-        };
-    
+        const responseText = await page.evaluate(async (text) => {
+          const url = 'https://pi.ai/api/chat';
+          const data = {
+            "text": `${text}`,
+            "conversation": "sZy322np39XiRivba1zo5" // Verifique se esse valor está correto
+          };
+      
+          const headers = {
+            'Accept': 'text/event-stream',
+            'Content-Type': 'application/json',
+            'Origin': 'https://pi.ai',
+            'Referer': 'https://pi.ai/talk',
+            'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Linux"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+          };
+      
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify(data)
+            });
+            return await response.text();
+          } catch (error) {
+            console.error('Error in fetch:', error);
+            return 'Error occurred during fetch';
+          }
+        }, paragraph);
+      
+        console.log('Response text:', responseText);
+      
+        let responseObject = { sid: 'unknown' };
         try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(data)
-          });
-          return await response.text();
+          // Extrai todos os eventos e os dados associados
+          const matches = responseText.match(/event: (\w+)\ndata: ({.*?})/g);
+
+          if (matches) {
+            // Itera sobre todos os eventos encontrados
+            for (const match of matches) {
+              const [, eventType, jsonData] = match.match(/event: (\w+)\ndata: ({.*?})/);
+              if (eventType === 'message') {
+                responseObject = JSON.parse(jsonData);
+                break; // Encerra o loop assim que encontrar o evento 'message'
+              }
+            }
+          }
         } catch (error) {
-          console.error('Error in fetch:', error);
-          return 'Error occurred during fetch';
+          console.error('Error parsing JSON:', error);
         }
-      }, paragraph);
-    
-      console.log('Response text:', responseText);
-    
-      let responseObject;
-      try {
-        // Verifica se há uma correspondência para 'data' e analisa JSON
-        const match = responseText.match(/data: ({.*?})/);
-        responseObject = match ? JSON.parse(match[1]) : { sid: 'unknown'};
-      } catch (error) {
-        console.error('Error parsing JSON:', error);
-        responseObject = { sid: 'unknown'};
+      
+        const sid = responseObject.sid || 'unknown';
+        const voiceUrl = `https://pi.ai/api/chat/voice?mode=eager&voice=voice3&messageSid=${sid}`;
+      
+        // Adiciona a linha ao conteúdo CSV
+        csvContent += `${sid}, ${voiceUrl}\n`;
       }
-    
-      const sid = responseObject.sid || 'unknown';
-      const voiceUrl = `https://pi.ai/api/chat/voice?mode=eager&voice=voice3&messageSid=${sid}`;
-    
-      // Adiciona a linha ao conteúdo CSV
-      csvContent += `${sid}, ${voiceUrl}\n`;
-    }
 
     // Salva o conteúdo CSV em um arquivo
     await fs.writeFile(path.join(__dirname, 'output.csv'), csvContent, 'utf8');
