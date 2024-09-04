@@ -33,14 +33,14 @@ const readCSV = (filePath) => {
 
     await page.setCookie({
       name: '__Host-session',
-      value: 'P6U7bgbuhS9AuNrnJ3jam',
+      value: 'iwJrHTN4CFyx4CdVWNs5w',
       domain: 'pi.ai',
       path: '/',
       sameSite: 'Lax',
       secure: true
     }, {
       name: '__cf_bm',
-      value: 'gxk3McqcBMXjMrnTTpPwhD0psi050Yrm6ywElmfFxtw-1725277923-1.0.1.1-kol1qv845WW4_aHF2IZIHDosY0ZIKSfnW_TXnbErFRCUtWvSY7kQJTBnwYEUIXMw7Vo.YtBRoWtr7AVYoQDj.w',
+      value: 'r8LQw3bq2NTjtwfYGPXJnFzr2Wk9lgSBZ1m4gXKN1tw-1725293908-1.0.1.1-WPQgPDxasPWduotFZ27sCaJVATE7S7mzkAcK4CY8PEpi7WImblGQj3IH7YXxV.4kfBU3ImtkoWHX7E4.WpmOkg',
       domain: '.pi.ai',
       path: '/',
       sameSite: 'None',
