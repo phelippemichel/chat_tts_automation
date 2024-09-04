@@ -7,10 +7,7 @@ const path = require('path');
   try {
     browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
-
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
-
-    // Adiciona cabeçalhos necessários
     await page.setExtraHTTPHeaders({
       'Accept-Encoding': 'gzip, deflate, br',
       'Accept': 'text/event-stream',
@@ -20,7 +17,6 @@ const path = require('path');
       'Origin': 'https://pi.ai'
     });
 
-    // Define os cookies
     await page.setCookie({
       name: '__Host-session',
       value: 'iwJrHTN4CFyx4CdVWNs5w',
@@ -38,22 +34,17 @@ const path = require('path');
     });
 
     await page.goto('https://pi.ai', { waitUntil: 'networkidle2', timeout: 60000 });
-
-    // Lê o conteúdo do arquivo
-    const fileContent = await fs.readFile('/home/phe/dev/chat_automation/archive/text.txt', 'utf8');
-
-    // Separa o conteúdo por parágrafos
+    const fileContent = await fs.readFile('archive/text.txt', 'utf8');
     const paragraphs = fileContent.split('#');
 
-    // Prepara o conteúdo CSV
     let csvContent = 'sid, url\n';
 
     for (const paragraph of paragraphs) {
         const responseText = await page.evaluate(async (text) => {
           const url = 'https://pi.ai/api/chat';
           const data = {
-            "text": `${text}`,
-            "conversation": "sZy322np39XiRivba1zo5" // Verifique se esse valor está correto
+            "text": `traduza para espanhol: ${text}`,
+            "conversation": "sZy322np39XiRivba1zo5"
           };
       
           const headers = {
@@ -87,16 +78,15 @@ const path = require('path');
       
         let responseObject = { sid: 'unknown' };
         try {
-          // Extrai todos os eventos e os dados associados
+
           const matches = responseText.match(/event: (\w+)\ndata: ({.*?})/g);
 
           if (matches) {
-            // Itera sobre todos os eventos encontrados
             for (const match of matches) {
               const [, eventType, jsonData] = match.match(/event: (\w+)\ndata: ({.*?})/);
               if (eventType === 'message') {
                 responseObject = JSON.parse(jsonData);
-                break; // Encerra o loop assim que encontrar o evento 'message'
+                break; 
               }
             }
           }
@@ -106,12 +96,9 @@ const path = require('path');
       
         const sid = responseObject.sid || 'unknown';
         const voiceUrl = `https://pi.ai/api/chat/voice?mode=eager&voice=voice3&messageSid=${sid}`;
-      
-        // Adiciona a linha ao conteúdo CSV
         csvContent += `${sid}, ${voiceUrl}\n`;
       }
 
-    // Salva o conteúdo CSV em um arquivo
     await fs.writeFile(path.join(__dirname, 'output.csv'), csvContent, 'utf8');
     console.log('CSV file saved.');
 

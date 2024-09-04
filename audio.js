@@ -1,65 +1,83 @@
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
-const csv = require('csv-parser');
+const csv = require('csv-parser'); 
 
-const downloadFile = async (url, filePath) => {
+const readCSV = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    fs.createReadStream(filePath)
+      .pipe(csv())
+      .on('data', (data) => results.push(data))
+      .on('end', () => resolve(results))
+      .on('error', (err) => reject(err));
+  });
+};
+
+(async () => {
+  let browser;
   try {
-    const response = await axios({
-      url,
-      method: 'GET',
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://pi.ai/talk',
-        'Origin': 'https://pi.ai',
-        'Cookie': '__Host-session=fWNeJZGfvxVh56NfXkLoC; __cf_bm=IU_In..Lj.faOCycTl46b0DvrfG.hGndFpiWYs7bgUc-1725292022-1.0.1.1-79CdfNzAgLKP57WRkCnULuJZQ3BNqAeUZCmFDa1Mu1XQnz7r6cktD8_hq20ZE5YzeQhREjwNznZMeo7ba4.rOw'
-      }
+
+    const records = await readCSV('output.csv');
+    browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept': 'audio/mpeg',
+      'Connection': 'keep-alive',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Content-Type': 'application/json',
+      'Origin': 'https://pi.ai'
     });
 
-    const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
+    await page.setCookie({
+      name: '__Host-session',
+      value: 'P6U7bgbuhS9AuNrnJ3jam',
+      domain: 'pi.ai',
+      path: '/',
+      sameSite: 'Lax',
+      secure: true
+    }, {
+      name: '__cf_bm',
+      value: 'gxk3McqcBMXjMrnTTpPwhD0psi050Yrm6ywElmfFxtw-1725277923-1.0.1.1-kol1qv845WW4_aHF2IZIHDosY0ZIKSfnW_TXnbErFRCUtWvSY7kQJTBnwYEUIXMw7Vo.YtBRoWtr7AVYoQDj.w',
+      domain: '.pi.ai',
+      path: '/',
+      sameSite: 'None',
+      secure: true
     });
+
+    await page.goto('https://pi.ai', { waitUntil: 'networkidle2', timeout: 60000 });
+    let counter = 1;
+    for (const record of records) {
+      const voiceUrl = record[' url'];
+      const messageSid = record.sid;
+
+      const audioContent = await page.evaluate(async (url) => {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'Origin': 'https://pi.ai'
+          }
+        });
+        const buffer = await response.arrayBuffer(); 
+        return Array.from(new Uint8Array(buffer)); 
+      }, voiceUrl);
+
+      
+      const fileName = `${counter}.mp3`;
+      fs.writeFileSync(path.join(__dirname, fileName), Buffer.from(audioContent));
+
+      console.log(`Áudio salvo como ${fileName}.`);
+      counter++;
+    }
+
   } catch (error) {
-    console.error(`Error downloading file from ${url}:`, error);
+    console.error('Erro ao navegar ou executar o script:', error);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
-};
-
-const processCSV = async () => {
-  const csvFilePath = path.join(__dirname, 'output.csv');
-  const downloadsDir = path.join(__dirname, 'downloads');
-
-  if (!fs.existsSync(downloadsDir)) {
-    fs.mkdirSync(downloadsDir);
-  }
-
-  fs.createReadStream(csvFilePath)
-    .pipe(csv())
-    .on('data', async (row) => {
-      const sid = row.sid.trim();
-      const url = row[' url']?.trim(); // Use the correct column name and trim extra spaces
-
-      if (!url) {
-        console.error('URL is missing in row:', row);
-        return;
-      }
-
-      const fileName = `${sid}.mp3`;
-      const filePath = path.join(downloadsDir, fileName);
-
-      console.log(`Downloading ${fileName} from ${url}`);
-      await downloadFile(url, filePath);
-      console.log(`Downloaded ${fileName}`);
-    })
-    .on('end', () => {
-      console.log('CSV file processing complete.');
-    });
-};
-
-processCSV();
+})();
