@@ -17,7 +17,6 @@ const readCSV = (filePath) => {
 (async () => {
   let browser;
   try {
-
     const records = await readCSV('output.csv');
     browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
@@ -33,14 +32,14 @@ const readCSV = (filePath) => {
 
     await page.setCookie({
       name: '__Host-session',
-      value: 'iwJrHTN4CFyx4CdVWNs5w',
+      value: 'HYqm76BJfhndaneu7BpjR',
       domain: 'pi.ai',
       path: '/',
       sameSite: 'Lax',
       secure: true
     }, {
       name: '__cf_bm',
-      value: 'r8LQw3bq2NTjtwfYGPXJnFzr2Wk9lgSBZ1m4gXKN1tw-1725293908-1.0.1.1-WPQgPDxasPWduotFZ27sCaJVATE7S7mzkAcK4CY8PEpi7WImblGQj3IH7YXxV.4kfBU3ImtkoWHX7E4.WpmOkg',
+      value: 'OOBEGduxKwNYHD43R2Z5Is6nmxFJOhdy7WdtAYNsQXY-1726605354-1.0.1.1-rl0d0sTnEHnDPuztOIzUcfaXQfbuPLM8xY.elck4gJ_IO9kEStMRE49XpL1YbIJA9NkwHS9mSnjQw7zwkp3a9g',
       domain: '.pi.ai',
       path: '/',
       sameSite: 'None',
@@ -48,6 +47,13 @@ const readCSV = (filePath) => {
     });
 
     await page.goto('https://pi.ai', { waitUntil: 'networkidle2', timeout: 60000 });
+
+    // Criar pasta "audio" se não existir
+    const audioDir = path.join(__dirname, 'audio');
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir);
+    }
+
     let counter = 1;
     for (const record of records) {
       const voiceUrl = record[' url'];
@@ -65,11 +71,11 @@ const readCSV = (filePath) => {
         return Array.from(new Uint8Array(buffer)); 
       }, voiceUrl);
 
-      
       const fileName = `${counter}.mp3`;
-      fs.writeFileSync(path.join(__dirname, fileName), Buffer.from(audioContent));
+      const filePath = path.join(audioDir, fileName);
+      fs.writeFileSync(filePath, Buffer.from(audioContent));
 
-      console.log(`Áudio salvo como ${fileName}.`);
+      console.log(`Áudio salvo como ${filePath}.`);
       counter++;
     }
 
