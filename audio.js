@@ -14,6 +14,39 @@ const readCSV = (filePath) => {
   });
 };
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchAudio = async (url, retries = 3) => {
+  while (retries > 0) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Origin': 'https://pi.ai'
+        }
+      });
+      if (response.status === 429) {
+        throw new Error(`Rate limit exceeded. Status: ${response.status}`);
+      }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch audio. Status: ${response.status}`);
+      }
+      const buffer = await response.arrayBuffer();
+      return Array.from(new Uint8Array(buffer));
+    } catch (error) {
+      console.error(`Erro ao baixar áudio: ${error.message}`);
+      retries -= 1;
+      if (retries > 0) {
+        console.log(`Tentando novamente em 5 segundos...`);
+        await delay(5000);
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 (async () => {
   let browser;
   try {
@@ -48,7 +81,6 @@ const readCSV = (filePath) => {
 
     await page.goto('https://pi.ai', { waitUntil: 'networkidle2', timeout: 60000 });
 
-    // Criar pasta "audio" se não existir
     const audioDir = path.join(__dirname, 'audio');
     if (!fs.existsSync(audioDir)) {
       fs.mkdirSync(audioDir);
@@ -59,24 +91,20 @@ const readCSV = (filePath) => {
       const voiceUrl = record[' url'];
       const messageSid = record.sid;
 
-      const audioContent = await page.evaluate(async (url) => {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Origin': 'https://pi.ai'
-          }
-        });
-        const buffer = await response.arrayBuffer(); 
-        return Array.from(new Uint8Array(buffer)); 
-      }, voiceUrl);
+      try {
+        const audioContent = await page.evaluate(fetchAudio, voiceUrl);
 
-      const fileName = `${counter}.mp3`;
-      const filePath = path.join(audioDir, fileName);
-      fs.writeFileSync(filePath, Buffer.from(audioContent));
+        const fileName = `${counter}.mp3`;
+        const filePath = path.join(audioDir, fileName);
+        fs.writeFileSync(filePath, Buffer.from(audioContent));
 
-      console.log(`Áudio salvo como ${filePath}.`);
+        console.log(`Áudio salvo como ${filePath}.`);
+      } catch (error) {
+        console.error(`Erro ao salvar áudio para SID ${messageSid}: ${error.message}`);
+      }
+
       counter++;
+      await delay(1000);
     }
 
   } catch (error) {
