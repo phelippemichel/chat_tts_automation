@@ -2,6 +2,9 @@ const puppeteer = require('puppeteer');
 const fs = require('fs').promises;
 const path = require('path');
 
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 (async () => {
   let browser;
   try {
@@ -19,14 +22,14 @@ const path = require('path');
 
     await page.setCookie({
       name: '__Host-session',
-      value: 'iwJrHTN4CFyx4CdVWNs5w',
+      value: 'HYqm76BJfhndaneu7BpjR',
       domain: 'pi.ai',
       path: '/',
       sameSite: 'Lax',
       secure: true
     }, {
       name: '__cf_bm',
-      value: 'r8LQw3bq2NTjtwfYGPXJnFzr2Wk9lgSBZ1m4gXKN1tw-1725293908-1.0.1.1-WPQgPDxasPWduotFZ27sCaJVATE7S7mzkAcK4CY8PEpi7WImblGQj3IH7YXxV.4kfBU3ImtkoWHX7E4.WpmOkg',
+      value: 'OOBEGduxKwNYHD43R2Z5Is6nmxFJOhdy7WdtAYNsQXY-1726605354-1.0.1.1-rl0d0sTnEHnDPuztOIzUcfaXQfbuPLM8xY.elck4gJ_IO9kEStMRE49XpL1YbIJA9NkwHS9mSnjQw7zwkp3a9g',
       domain: '.pi.ai',
       path: '/',
       sameSite: 'None',
@@ -43,10 +46,10 @@ const path = require('path');
         const responseText = await page.evaluate(async (text) => {
           const url = 'https://pi.ai/api/chat';
           const data = {
-            "text": `traduza para espanhol: ${text}`,
-            "conversation": "sZy322np39XiRivba1zo5"
+            "text": `traduza para espanhol:\n${text}"`,
+            "conversation": "vSGNmRxZtRokGXkakFTBm"
           };
-      
+
           const headers = {
             'Accept': 'text/event-stream',
             'Content-Type': 'application/json',
@@ -60,25 +63,31 @@ const path = require('path');
             'Sec-Fetch-Site': 'same-origin',
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
           };
-      
+
           try {
             const response = await fetch(url, {
               method: 'POST',
               headers: headers,
               body: JSON.stringify(data)
             });
+            
+            if (response.status === 429) {
+              console.log('Too Many Requests, waiting...');
+              await delay(60000);
+              return 'Error: Too Many Requests';
+            }
+
             return await response.text();
           } catch (error) {
             console.error('Error in fetch:', error);
             return 'Error occurred during fetch';
           }
         }, paragraph);
-      
+
         console.log('Response text:', responseText);
-      
+
         let responseObject = { sid: 'unknown' };
         try {
-
           const matches = responseText.match(/event: (\w+)\ndata: ({.*?})/g);
 
           if (matches) {
@@ -86,18 +95,19 @@ const path = require('path');
               const [, eventType, jsonData] = match.match(/event: (\w+)\ndata: ({.*?})/);
               if (eventType === 'message') {
                 responseObject = JSON.parse(jsonData);
-                break; 
+                break;
               }
             }
           }
         } catch (error) {
           console.error('Error parsing JSON:', error);
         }
-      
+
         const sid = responseObject.sid || 'unknown';
         const voiceUrl = `https://pi.ai/api/chat/voice?mode=eager&voice=voice3&messageSid=${sid}`;
         csvContent += `${sid}, ${voiceUrl}\n`;
-      }
+        await delay(2000);
+    }
 
     await fs.writeFile(path.join(__dirname, 'output.csv'), csvContent, 'utf8');
     console.log('CSV file saved.');
